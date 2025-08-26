@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  getAuth,
   signInWithPopup,
   GoogleAuthProvider,
   GithubAuthProvider,
@@ -12,12 +11,6 @@ import { auth } from './firebase';
 
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
-
-// This ensures the correct callback URL is used for GitHub authentication.
-githubProvider.setCustomParameters({
-  redirect_uri: `https://expensify-zen.firebaseapp.com/__/auth/handler`,
-});
-
 
 export const signInWithGoogle = async () => {
   try {
