@@ -8,19 +8,18 @@ import {
   GoogleAuthProvider,
   GithubAuthProvider,
   signOut as firebaseSignOut,
+  fetchSignInMethodsForEmail,
+  linkWithCredential,
   type User,
+  type AuthProvider,
 } from "firebase/auth";
 import { app } from "./firebase";
 
 export const auth = getAuth(app);
 
-// Log the current auth domain for debugging
-console.log("Firebase Auth initialized with domain:", auth.config.authDomain);
-
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
 
-// Helper function to check if we're in a secure context
 const isSecureContext = () => {
   if (typeof window !== "undefined") {
     return window.isSecureContext || window.location.protocol === "https:";
@@ -28,92 +27,76 @@ const isSecureContext = () => {
   return false;
 };
 
-// Function to handle redirect results (call this when the page loads)
 export const handleRedirectResult = async () => {
   try {
     const result = await getRedirectResult(auth);
     if (result) {
-      console.log("Redirect sign-in successful:", result.user.email);
       return result.user;
     }
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'auth/account-exists-with-different-credential') {
+        const pendingCred = error.credential;
+        const email = error.customData.email;
+        const methods = await fetchSignInMethodsForEmail(auth, email);
+        
+        if (methods[0] === 'google.com') {
+            const result = await signInWithPopup(auth, googleProvider);
+            if(result.user && pendingCred) {
+                await linkWithCredential(result.user, pendingCred);
+            }
+        }
+    }
     console.error("Error handling redirect result:", error);
     return null;
   }
 };
 
-export const signInWithGoogle = async () => {
+const handleSignIn = async (provider: AuthProvider) => {
   try {
-    console.log("Attempting Google sign-in...");
-    console.log("Secure context:", isSecureContext());
-
-    // Use redirect instead of popup for localhost to avoid SSL issues
+    console.log(`Attempting sign-in with ${provider.providerId}...`);
+    
+    // For non-secure contexts like http://localhost, redirect is often more reliable
     if (!isSecureContext()) {
       console.log("Not in secure context, using redirect method");
-      await signInWithRedirect(auth, googleProvider);
-      return null; // User will be redirected
+      await signInWithRedirect(auth, provider);
+      return null;
     }
 
-    const result = await signInWithPopup(auth, googleProvider);
-    console.log("Google sign-in successful:", result.user.email);
+    const result = await signInWithPopup(auth, provider);
+    console.log(`${provider.providerId} sign-in successful:`, result.user.email);
     return result.user;
   } catch (error: any) {
-    console.error("Error signing in with Google:", error);
+    if (error.code === 'auth/account-exists-with-different-credential') {
+      const pendingCred = provider.providerId === 'google.com' 
+        ? GoogleAuthProvider.credentialFromError(error)
+        : GithubAuthProvider.credentialFromError(error);
+        
+      const email = error.customData.email;
+      const methods = await fetchSignInMethodsForEmail(auth, email);
 
-    // Log specific error details
-    if (error.code === "auth/unauthorized-domain") {
-      console.error(
-        "Unauthorized domain error. Current domain:",
-        window.location.hostname
-      );
-      console.error("Firebase auth domain:", auth.config.authDomain);
-    } else if (error.code === "auth/cancelled-popup-request") {
-      console.error(
-        "Popup was cancelled. This often happens due to SSL issues on localhost."
-      );
-      console.error("Try using the redirect method instead.");
+      if (methods[0] === 'google.com') {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result.user && pendingCred) {
+          await linkWithCredential(result.user, pendingCred);
+          return result.user;
+        }
+      } else if (methods[0] === 'github.com') {
+        const result = await signInWithPopup(auth, githubProvider);
+         if (result.user && pendingCred) {
+          await linkWithCredential(result.user, pendingCred);
+          return result.user;
+        }
+      }
     }
-
+    console.error(`Error signing in with ${provider.providerId}:`, error);
     return null;
   }
 };
 
-export const signInWithGitHub = async () => {
-  try {
-    console.log("Attempting GitHub sign-in...");
-    console.log("Secure context:", isSecureContext());
 
-    // Use redirect instead of popup for localhost to avoid SSL issues
-    if (!isSecureContext()) {
-      console.log("Not in secure context, using redirect method");
-      await signInWithRedirect(auth, githubProvider);
-      return null; // User will be redirected
-    }
-
-    const result = await signInWithPopup(auth, githubProvider);
-    console.log("GitHub sign-in successful:", result.user.email);
-    return result.user;
-  } catch (error: any) {
-    console.error("Error signing in with GitHub:", error);
-
-    // Log specific error details
-    if (error.code === "auth/unauthorized-domain") {
-      console.error(
-        "Unauthorized domain error. Current domain:",
-        window.location.hostname
-      );
-      console.error("Firebase auth domain:", auth.config.authDomain);
-    } else if (error.code === "auth/cancelled-popup-request") {
-      console.error(
-        "Popup was cancelled. This often happens due to SSL issues on localhost."
-      );
-      console.error("Try using the redirect method instead.");
-    }
-
-    return null;
-  }
-};
+export const signInWithGoogle = () => handleSignIn(googleProvider);
+export const signInWithGitHub = () => handleSignIn(githubProvider);
 
 export const signOut = async () => {
   try {
