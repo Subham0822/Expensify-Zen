@@ -1,16 +1,18 @@
-'use client';
+"use client";
 
-import { createContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth } from '@/lib/auth';
-import { useRouter, usePathname } from 'next/navigation';
+import { createContext, useEffect, useState, ReactNode } from "react";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { auth, handleRedirectResult } from "@/lib/auth";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -19,17 +21,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
+    // Handle redirect results first (for localhost development)
+    const handleAuthRedirect = async () => {
+      try {
+        const redirectUser = await handleRedirectResult();
+        if (redirectUser) {
+          setUser(redirectUser);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error handling redirect:", error);
+      }
 
-    return () => unsubscribe();
+      // If no redirect result, listen for auth state changes
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        setUser(user);
+        setLoading(false);
+      });
+
+      return unsubscribe;
+    };
+
+    const unsubscribe = handleAuthRedirect();
+    return () => {
+      if (unsubscribe && typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
   }, []);
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
-      router.push('/login');
+    if (!loading && !user && pathname !== "/login") {
+      router.push("/login");
     }
   }, [user, loading, router, pathname]);
 
