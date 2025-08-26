@@ -40,20 +40,13 @@ export default function ProfilePage() {
           <CardContent className="space-y-6">
             <div className="flex items-center space-x-4">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={user.photoURL || "https://picsum.photos/100/100"} alt={user.displayName || "User Avatar"} data-ai-hint="user avatar" />
-                <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                <AvatarImage src={user.photoURL || ""} alt={user.displayName || "User Avatar"} data-ai-hint="user avatar" />
+                <AvatarFallback>{user.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
               </Avatar>
               <div className="space-y-1">
                 <h2 className="text-2xl font-bold">{user.displayName}</h2>
                 <p className="text-muted-foreground">{user.email}</p>
               </div>
-            </div>
-            <div className="space-y-2">
-                <h3 className="font-semibold">Account Information</h3>
-                <div className="text-sm text-muted-foreground">
-                    <p><strong>User ID:</strong> {user.uid}</p>
-                    <p><strong>Provider:</strong> {user.providerData[0]?.providerId}</p>
-                </div>
             </div>
              <Button variant="destructive" onClick={handleLogout}>
               Logout
