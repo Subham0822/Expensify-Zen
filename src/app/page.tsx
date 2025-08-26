@@ -96,6 +96,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Footer } from "@/components/footer";
 
 
 const expenseSchema = z.object({
@@ -865,6 +866,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+        <Footer />
       </main>
     </div>
   );
