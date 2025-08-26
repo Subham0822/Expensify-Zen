@@ -20,6 +20,7 @@ import {
   BadgeCent,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from "lucide-react";
 import { format, startOfMonth, isSameMonth, isToday } from "date-fns";
 
@@ -351,6 +352,10 @@ function PaginatedExpenseTable({
     }
   };
 
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [expenses]);
+
   return (
     <>
       <ExpenseTable expenses={paginatedExpenses} onUpdate={onUpdate} onDelete={onDelete} />
@@ -488,6 +493,8 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [expenses, setExpenses] = React.useState<Expense[]>([]);
   const [isFetching, setIsFetching] = React.useState(true);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("all");
   
   React.useEffect(() => {
     if (!loading && !user) {
@@ -516,10 +523,22 @@ export default function DashboardPage() {
     },
   });
 
+  const filteredExpenses = React.useMemo(() => {
+    return expenses.filter(expense => {
+      const categoryMatch = categoryFilter === 'all' || expense.category === categoryFilter;
+      const searchMatch = searchTerm === '' ||
+        expense.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expense.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expense.paymentMethod.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(expense.amount).toLowerCase().includes(searchTerm.toLowerCase());
+      return categoryMatch && searchMatch;
+    });
+  }, [expenses, searchTerm, categoryFilter]);
+
   const { currentMonthExpenses, pastMonthsExpenses } = React.useMemo(() => {
     const today = new Date();
-    const current = expenses.filter(expense => isSameMonth(expense.date, today));
-    const past = expenses.filter(expense => !isSameMonth(expense.date, today));
+    const current = filteredExpenses.filter(expense => isSameMonth(expense.date, today));
+    const past = filteredExpenses.filter(expense => !isSameMonth(expense.date, today));
     
     const groupedByMonth = past.reduce((acc, expense) => {
       const monthKey = format(startOfMonth(expense.date), 'yyyy-MM');
@@ -537,10 +556,11 @@ export default function DashboardPage() {
       currentMonthExpenses: current,
       pastMonthsExpenses: Object.values(groupedByMonth).sort((a, b) => b.month.getTime() - a.month.getTime())
     };
-  }, [expenses]);
+  }, [filteredExpenses]);
   
   const dailyAndMonthlyTotals = React.useMemo(() => {
-    const totals = currentMonthExpenses.reduce(
+    const originalCurrentMonthExpenses = expenses.filter(expense => isSameMonth(expense.date, new Date()));
+    const totals = originalCurrentMonthExpenses.reduce(
       (acc, expense) => {
         acc.monthlyTotal += expense.amount;
         if (expense.paymentMethod === "cash") {
@@ -556,7 +576,7 @@ export default function DashboardPage() {
       { monthlyTotal: 0, monthlyCash: 0, monthlyUpi: 0, dailyTotal: 0 }
     );
     return totals;
-  }, [currentMonthExpenses]);
+  }, [expenses]);
 
   async function onSubmit(values: z.infer<typeof expenseSchema>) {
     if (!user) {
@@ -851,10 +871,39 @@ export default function DashboardPage() {
 
         <Card className="transition-all hover:shadow-md">
           <CardHeader>
-            <CardTitle>Recent Expenses</CardTitle>
-            <CardDescription>
-              A list of your transactions for the current month.
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              <div>
+                <CardTitle>Recent Expenses</CardTitle>
+                <CardDescription>
+                  A list of your transactions for the current month.
+                </CardDescription>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search expenses..."
+                      className="pl-8 sm:w-full"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Filter by category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="food">Food</SelectItem>
+                    <SelectItem value="transport">Transport</SelectItem>
+                    <SelectItem value="shopping">Shopping</SelectItem>
+                    <SelectItem value="bills">Bills</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
              {isFetching ? (
@@ -869,7 +918,7 @@ export default function DashboardPage() {
                 />
              ) : (
                <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
-                 No expenses yet. Add one to get started!
+                 No expenses found.
                </div>
              )}
           </CardContent>
@@ -914,3 +963,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
