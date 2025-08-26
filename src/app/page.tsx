@@ -18,6 +18,8 @@ import {
   Wallet,
   Landmark,
   BadgeCent,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { format, startOfMonth, isSameMonth, isToday } from "date-fns";
 
@@ -93,8 +95,6 @@ import {
   Pagination,
   PaginationContent,
   PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
   AlertDialog,
@@ -320,6 +320,74 @@ function EditExpenseDialog({
   );
 }
 
+const EXPENSES_PER_PAGE = 5;
+
+function PaginatedExpenseTable({ 
+  expenses, 
+  onUpdate, 
+  onDelete 
+}: {
+  expenses: Expense[];
+  onUpdate: (expenseId: string, values: UpdatableExpense) => void;
+  onDelete: (expenseId: string) => void;
+}) {
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.ceil(expenses.length / EXPENSES_PER_PAGE);
+
+  const paginatedExpenses = expenses.slice(
+    (currentPage - 1) * EXPENSES_PER_PAGE,
+    currentPage * EXPENSES_PER_PAGE
+  );
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  return (
+    <>
+      <ExpenseTable expenses={paginatedExpenses} onUpdate={onUpdate} onDelete={onDelete} />
+      {totalPages > 1 && (
+        <Pagination className="mt-4">
+          <PaginationContent>
+            <PaginationItem>
+              <Button
+                variant="outline"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="sr-only">Previous</span>
+              </Button>
+            </PaginationItem>
+            <PaginationItem>
+              <span className="text-sm text-muted-foreground px-4">
+                Page {currentPage} of {totalPages}
+              </span>
+            </PaginationItem>
+            <PaginationItem>
+              <Button
+                variant="outline"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+              >
+                <span className="sr-only">Next</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
+    </>
+  );
+}
 
 function ExpenseTable({ expenses, onUpdate, onDelete }: {
   expenses: Expense[];
@@ -420,10 +488,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [expenses, setExpenses] = React.useState<Expense[]>([]);
   const [isFetching, setIsFetching] = React.useState(true);
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const expensesPerPage = 5;
-
-
+  
   React.useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
@@ -557,25 +622,6 @@ export default function DashboardPage() {
       });
     }
   }
-
-  // Pagination logic for current month expenses
-  const totalPages = Math.ceil(currentMonthExpenses.length / expensesPerPage);
-  const paginatedCurrentMonthExpenses = currentMonthExpenses.slice(
-    (currentPage - 1) * expensesPerPage,
-    currentPage * expensesPerPage
-  );
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
 
   if (loading || !user) {
     return (
@@ -816,42 +862,11 @@ export default function DashboardPage() {
                 Loading expenses...
               </div>
             ) : currentMonthExpenses.length > 0 ? (
-                <>
-                  <ExpenseTable
-                    expenses={paginatedCurrentMonthExpenses}
-                    onUpdate={handleUpdateExpense}
-                    onDelete={deleteExpense}
-                  />
-                  {totalPages > 1 && (
-                    <Pagination className="mt-4">
-                      <PaginationContent>
-                        <PaginationItem>
-                          <Button 
-                            variant="outline" 
-                            onClick={handlePreviousPage}
-                            disabled={currentPage === 1}
-                          >
-                            <PaginationPrevious href="#" />
-                          </Button>
-                        </PaginationItem>
-                        <PaginationItem>
-                          <span className="text-sm text-muted-foreground">
-                            Page {currentPage} of {totalPages}
-                          </span>
-                        </PaginationItem>
-                        <PaginationItem>
-                          <Button 
-                            variant="outline"
-                            onClick={handleNextPage}
-                            disabled={currentPage === totalPages}
-                          >
-                            <PaginationNext href="#" />
-                          </Button>
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  )}
-                </>
+                <PaginatedExpenseTable
+                  expenses={currentMonthExpenses}
+                  onUpdate={handleUpdateExpense}
+                  onDelete={deleteExpense}
+                />
              ) : (
                <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
                  No expenses yet. Add one to get started!
@@ -881,7 +896,7 @@ export default function DashboardPage() {
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <ExpenseTable
+                        <PaginatedExpenseTable
                           expenses={monthExpenses}
                           onUpdate={handleUpdateExpense}
                           onDelete={deleteExpense}
@@ -899,5 +914,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
