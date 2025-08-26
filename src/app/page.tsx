@@ -97,7 +97,7 @@ export default function DashboardPage() {
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       name: "",
-      amount: undefined,
+      amount: "" as unknown as number, // Fix: Use empty string to avoid uncontrolled component warning
       category: "other",
     },
   });
