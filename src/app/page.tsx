@@ -18,7 +18,7 @@ import {
   Wallet,
   Landmark,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfMonth, isSameMonth } from "date-fns";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,13 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
 
 const expenseSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -106,6 +113,12 @@ const paymentMethodIcons: Record<Expense['paymentMethod'], React.ReactNode> = {
   upi: <Landmark className="h-4 w-4" />,
 };
 
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  }).format(amount);
+};
 
 function EditExpenseDialog({
   expense,
@@ -287,6 +300,83 @@ function EditExpenseDialog({
   );
 }
 
+
+function ExpenseTable({ expenses, onUpdate, onDelete }: {
+  expenses: Expense[];
+  onUpdate: (expenseId: string, values: UpdatableExpense) => void;
+  onDelete: (expenseId: string) => void;
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Category</TableHead>
+          <TableHead>Name</TableHead>
+          <TableHead>Date</TableHead>
+          <TableHead>Payment Method</TableHead>
+          <TableHead className="text-right">Amount</TableHead>
+          <TableHead className="w-[100px] text-center">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {expenses.length > 0 ? (
+          expenses.map((expense) => (
+            <TableRow key={expense.id} className="transition-colors">
+              <TableCell>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  {categoryIcons[expense.category]}
+                </div>
+              </TableCell>
+              <TableCell className="font-medium">{expense.name}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {format(expense.date, "PPP")}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    {paymentMethodIcons[expense.paymentMethod]}
+                  </div>
+                  <span className="capitalize">{expense.paymentMethod}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                {formatCurrency(expense.amount)}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center justify-center">
+                  <EditExpenseDialog
+                    expense={expense}
+                    onUpdate={(values) => onUpdate(expense.id, values)}
+                  />
+                  <Button
+                    aria-label="Delete expense"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDelete(expense.id)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell
+              colSpan={6}
+              className="h-24 text-center text-muted-foreground"
+            >
+              No expenses for this period.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+}
+
+
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -321,18 +411,43 @@ export default function DashboardPage() {
     },
   });
 
-  const totalSpentThisMonth = React.useMemo(() => {
+  const { currentMonthExpenses, pastMonthsExpenses } = React.useMemo(() => {
     const today = new Date();
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const current = expenses.filter(expense => isSameMonth(expense.date, today));
+    const past = expenses.filter(expense => !isSameMonth(expense.date, today));
+    
+    const groupedByMonth = past.reduce((acc, expense) => {
+      const monthKey = format(startOfMonth(expense.date), 'yyyy-MM');
+      if (!acc[monthKey]) {
+        acc[monthKey] = {
+          month: startOfMonth(expense.date),
+          expenses: []
+        };
+      }
+      acc[monthKey].expenses.push(expense);
+      return acc;
+    }, {} as Record<string, { month: Date; expenses: Expense[] }>);
 
-    return expenses
-      .filter((expense) => {
-        const expenseDate = new Date(expense.date);
-        return expenseDate >= firstDayOfMonth && expenseDate <= lastDayOfMonth;
-      })
-      .reduce((total, expense) => total + expense.amount, 0);
+    return {
+      currentMonthExpenses: current,
+      pastMonthsExpenses: Object.values(groupedByMonth).sort((a, b) => b.month.getTime() - a.month.getTime())
+    };
   }, [expenses]);
+  
+  const monthlyTotals = React.useMemo(() => {
+    return currentMonthExpenses.reduce(
+      (acc, expense) => {
+        acc.total += expense.amount;
+        if (expense.paymentMethod === "cash") {
+          acc.cash += expense.amount;
+        } else if (expense.paymentMethod === "upi") {
+          acc.upi += expense.amount;
+        }
+        return acc;
+      },
+      { total: 0, cash: 0, upi: 0 }
+    );
+  }, [currentMonthExpenses]);
 
   async function onSubmit(values: z.infer<typeof expenseSchema>) {
     if (!user) {
@@ -399,13 +514,6 @@ export default function DashboardPage() {
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-    }).format(amount);
-  };
-
   if (loading || !user) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
@@ -418,8 +526,8 @@ export default function DashboardPage() {
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <Header />
       <main className="flex flex-1 flex-col gap-4 p-4 sm:p-6 animate-in fade-in-50">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="transition-all hover:shadow-md">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+           <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Total Spent (This Month)
@@ -428,255 +536,254 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(totalSpentThisMonth)}
+                {formatCurrency(monthlyTotals.total)}
               </div>
               <p className="text-xs text-muted-foreground">
-                Total expenses for {format(new Date(), "MMMM yyyy")}
+                Total for {format(new Date(), "MMMM yyyy")}
               </p>
             </CardContent>
           </Card>
-          <Card className="md:col-span-1 lg:col-span-3 transition-all hover:shadow-md">
-            <CardHeader>
-              <CardTitle>Add a New Expense</CardTitle>
-              <CardDescription>
-                Fill out the form to add a new transaction to your list.
-              </CardDescription>
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Cash Spent</CardTitle>
+              <Wallet className="h-6 w-6 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6"
-                >
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem className="lg:col-span-2">
-                        <FormLabel>Expense Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g. Lunch with friends"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="e.g. 1500.50"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="food">Food</SelectItem>
-                            <SelectItem value="transport">Transport</SelectItem>
-                            <SelectItem value="shopping">Shopping</SelectItem>
-                            <SelectItem value="bills">Bills</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                   <FormField
-                    control={form.control}
-                    name="paymentMethod"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Payment</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a method" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="cash">Cash</SelectItem>
-                            <SelectItem value="upi">UPI</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="date"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col pt-2">
-                        <FormLabel>Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent
-                            className="w-auto p-0"
-                            align="start"
-                          >
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) => date > new Date()}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="sm:col-span-2 lg:col-span-full"
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Expense
-                  </Button>
-                </form>
-              </Form>
+              <div className="text-2xl font-bold">
+                {formatCurrency(monthlyTotals.cash)}
+              </div>
+               <p className="text-xs text-muted-foreground">
+                This month via Cash
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">UPI Spent</CardTitle>
+              <Landmark className="h-6 w-6 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(monthlyTotals.upi)}
+              </div>
+               <p className="text-xs text-muted-foreground">
+                This month via UPI
+              </p>
             </CardContent>
           </Card>
         </div>
+        
+        <Card className="transition-all hover:shadow-md">
+          <CardHeader>
+            <CardTitle>Add a New Expense</CardTitle>
+            <CardDescription>
+              Fill out the form to add a new transaction to your list.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6"
+              >
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem className="lg:col-span-2">
+                      <FormLabel>Expense Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. Lunch with friends"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Amount</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="e.g. 1500.50"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="food">Food</SelectItem>
+                          <SelectItem value="transport">Transport</SelectItem>
+                          <SelectItem value="shopping">Shopping</SelectItem>
+                          <SelectItem value="bills">Bills</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                  <FormField
+                  control={form.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a method" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="upi">UPI</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col pt-2">
+                      <FormLabel>Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-0"
+                          align="start"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => date > new Date()}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  className="w-full sm:col-span-2 lg:col-span-6"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Expense
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+
         <Card className="transition-all hover:shadow-md">
           <CardHeader>
             <CardTitle>Recent Expenses</CardTitle>
             <CardDescription>
-              A list of your recent transactions.
+              A list of your transactions for the current month.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[60px]">
-                    Category
-                  </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Payment Method</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="w-[100px] text-center">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isFetching ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      Loading expenses...
-                    </TableCell>
-                  </TableRow>
-                ) : expenses.length > 0 ? (
-                  expenses.map((expense) => (
-                    <TableRow key={expense.id} className="transition-colors">
-                      <TableCell>
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                          {categoryIcons[expense.category]}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {expense.name}
-                      </TableCell>
-                       <TableCell className="text-muted-foreground">
-                        {format(expense.date, "PPP")}
-                      </TableCell>
-                       <TableCell>
-                        <div className="flex items-center gap-2">
-                           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                            {paymentMethodIcons[expense.paymentMethod]}
-                          </div>
-                          <span className="capitalize">{expense.paymentMethod}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(expense.amount)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center">
-                          <EditExpenseDialog 
-                            expense={expense}
-                            onUpdate={(values) => handleUpdateExpense(expense.id, values)}
-                          />
-                          <Button
-                            aria-label="Delete expense"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteExpense(expense.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      No expenses yet. Add one to get started!
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+             {isFetching ? (
+              <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
+                Loading expenses...
+              </div>
+            ) : currentMonthExpenses.length > 0 ? (
+               <ExpenseTable
+                  expenses={currentMonthExpenses}
+                  onUpdate={handleUpdateExpense}
+                  onDelete={deleteExpense}
+                />
+             ) : (
+               <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
+                 No expenses yet. Add one to get started!
+               </div>
+             )}
           </CardContent>
         </Card>
+        
+         {pastMonthsExpenses.length > 0 && (
+          <Card className="transition-all hover:shadow-md">
+            <CardHeader>
+              <CardTitle>Past Expenses</CardTitle>
+              <CardDescription>
+                Your transaction history from previous months.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible className="w-full">
+                {pastMonthsExpenses.map(({ month, expenses: monthExpenses }) => {
+                  const monthTotal = monthExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                  return (
+                    <AccordionItem key={month.toISOString()} value={month.toISOString()}>
+                      <AccordionTrigger>
+                        <div className="flex justify-between w-full pr-4">
+                          <span>{format(month, "MMMM yyyy")}</span>
+                          <span className="font-semibold">{formatCurrency(monthTotal)}</span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ExpenseTable
+                          expenses={monthExpenses}
+                          onUpdate={handleUpdateExpense}
+                          onDelete={deleteExpense}
+                        />
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
