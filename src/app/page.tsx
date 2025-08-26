@@ -88,6 +88,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 
 const expenseSchema = z.object({
@@ -383,6 +390,9 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [expenses, setExpenses] = React.useState<Expense[]>([]);
   const [isFetching, setIsFetching] = React.useState(true);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const expensesPerPage = 10;
+
 
   React.useEffect(() => {
     if (!loading && !user) {
@@ -513,6 +523,25 @@ export default function DashboardPage() {
       });
     }
   }
+
+  // Pagination logic for current month expenses
+  const totalPages = Math.ceil(currentMonthExpenses.length / expensesPerPage);
+  const paginatedCurrentMonthExpenses = currentMonthExpenses.slice(
+    (currentPage - 1) * expensesPerPage,
+    currentPage * expensesPerPage
+  );
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   if (loading || !user) {
     return (
@@ -737,11 +766,42 @@ export default function DashboardPage() {
                 Loading expenses...
               </div>
             ) : currentMonthExpenses.length > 0 ? (
-               <ExpenseTable
-                  expenses={currentMonthExpenses}
-                  onUpdate={handleUpdateExpense}
-                  onDelete={deleteExpense}
-                />
+                <>
+                  <ExpenseTable
+                    expenses={paginatedCurrentMonthExpenses}
+                    onUpdate={handleUpdateExpense}
+                    onDelete={deleteExpense}
+                  />
+                  {totalPages > 1 && (
+                    <Pagination className="mt-4">
+                      <PaginationContent>
+                        <PaginationItem>
+                          <Button 
+                            variant="outline" 
+                            onClick={handlePreviousPage}
+                            disabled={currentPage === 1}
+                          >
+                            <PaginationPrevious href="#" />
+                          </Button>
+                        </PaginationItem>
+                        <PaginationItem>
+                          <span className="text-sm text-muted-foreground">
+                            Page {currentPage} of {totalPages}
+                          </span>
+                        </PaginationItem>
+                        <PaginationItem>
+                          <Button 
+                            variant="outline"
+                            onClick={handleNextPage}
+                            disabled={currentPage === totalPages}
+                          >
+                            <PaginationNext href="#" />
+                          </Button>
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  )}
+                </>
              ) : (
                <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
                  No expenses yet. Add one to get started!
