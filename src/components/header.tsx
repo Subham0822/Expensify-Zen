@@ -37,7 +37,7 @@ export function Header() {
         <div className="w-8 h-8">
             <Logo />
         </div>
-        <span className="font-bold text-foreground">Expensify Zen</span>
+        <span className="font-bold text-foreground">Khorcha Khata</span>
       </Link>
       <div className="relative ml-auto flex-1 md:grow-0">
         {/* Can be used for search in future */}

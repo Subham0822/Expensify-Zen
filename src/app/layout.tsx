@@ -5,7 +5,7 @@ import { AuthProvider } from '@/components/auth-provider';
 import { ThemeProvider } from '@/components/theme-provider';
 
 export const metadata: Metadata = {
-  title: 'Expensify Zen',
+  title: 'Khorcha Khata',
   description: 'A simple, attractive expense tracker.',
 };
 

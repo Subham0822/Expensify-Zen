@@ -595,7 +595,7 @@ export default function DashboardPage() {
           </Card>
           <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cash Spent</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Cash Spent (This Month)</CardTitle>
               <Wallet className="h-6 w-6 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -609,7 +609,7 @@ export default function DashboardPage() {
           </Card>
           <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">UPI Spent</CardTitle>
+              <CardTitle className="text-sm font-medium">Total UPI Spent (This Month)</CardTitle>
               <Landmark className="h-6 w-6 text-muted-foreground" />
             </CardHeader>
             <CardContent>
