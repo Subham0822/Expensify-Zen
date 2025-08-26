@@ -8,6 +8,8 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  updateDoc,
+  Timestamp,
   type DocumentData,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -20,10 +22,13 @@ export interface Expense {
   name: string;
   amount: number;
   category: "food" | "transport" | "shopping" | "bills" | "other";
+  date: Date;
   createdAt: Date;
 }
 
 export type NewExpense = Omit<Expense, "id" | "createdAt">;
+export type UpdatableExpense = Omit<Expense, "id" | "createdAt">;
+
 
 // Function to add a new expense for a specific user
 export const addExpense = async (
@@ -37,6 +42,7 @@ export const addExpense = async (
     const expensesCollectionRef = collection(db, "expenses", userId, "items");
     await addDoc(expensesCollectionRef, {
       ...expense,
+      date: Timestamp.fromDate(expense.date),
       createdAt: serverTimestamp(),
     });
   } catch (error) {
@@ -55,7 +61,7 @@ export const getExpenses = (
     return () => {};
   }
   const expensesCollectionRef = collection(db, "expenses", userId, "items");
-  const q = query(expensesCollectionRef, orderBy("createdAt", "desc"));
+  const q = query(expensesCollectionRef, orderBy("date", "desc"));
 
   const unsubscribe = onSnapshot(
     q,
@@ -68,6 +74,7 @@ export const getExpenses = (
           name: data.name,
           amount: data.amount,
           category: data.category,
+          date: data.date.toDate(),
           createdAt: data.createdAt?.toDate(),
         });
       });
@@ -80,6 +87,28 @@ export const getExpenses = (
 
   return unsubscribe;
 };
+
+// Function to update an expense for a specific user
+export const updateExpense = async (
+  userId: string,
+  expenseId: string,
+  expense: UpdatableExpense
+): Promise<void> => {
+  if (!userId) {
+    throw new Error("User ID is required to update an expense.");
+  }
+  try {
+    const expenseDocRef = doc(db, "expenses", userId, "items", expenseId);
+    await updateDoc(expenseDocRef, {
+      ...expense,
+      date: Timestamp.fromDate(expense.date),
+    });
+  } catch (error) {
+    console.error("Error updating document: ", error);
+    throw new Error("Failed to update expense.");
+  }
+};
+
 
 // Function to delete an expense for a specific user
 export const deleteExpense = async (
