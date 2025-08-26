@@ -597,12 +597,12 @@ export default function DashboardPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="hidden w-[60px] sm:table-cell">
+                  <TableHead className="w-[60px]">
                     Category
                   </TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="hidden sm:table-cell">Date</TableHead>
-                  <TableHead className="hidden md:table-cell">Payment Method</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Payment Method</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="w-[100px] text-center">
                     Actions
@@ -622,7 +622,7 @@ export default function DashboardPage() {
                 ) : expenses.length > 0 ? (
                   expenses.map((expense) => (
                     <TableRow key={expense.id} className="transition-colors">
-                      <TableCell className="hidden sm:table-cell">
+                      <TableCell>
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                           {categoryIcons[expense.category]}
                         </div>
@@ -630,10 +630,10 @@ export default function DashboardPage() {
                       <TableCell className="font-medium">
                         {expense.name}
                       </TableCell>
-                       <TableCell className="hidden sm:table-cell text-muted-foreground">
+                       <TableCell className="text-muted-foreground">
                         {format(expense.date, "PPP")}
                       </TableCell>
-                       <TableCell className="hidden md:table-cell">
+                       <TableCell>
                         <div className="flex items-center gap-2">
                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                             {paymentMethodIcons[expense.paymentMethod]}
