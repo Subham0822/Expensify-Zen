@@ -12,12 +12,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Logo } from "./icons";
+import { useAuth } from "@/hooks/use-auth";
+import { signOut } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 
 export function Header() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut();
+    router.push('/login');
+  };
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
       <Link
-        href="#"
+        href="/"
         className="flex items-center gap-2 text-lg font-semibold text-primary"
       >
         <div className="w-8 h-8">
@@ -28,30 +39,32 @@ export function Header() {
       <div className="relative ml-auto flex-1 md:grow-0">
         {/* Can be used for search in future */}
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
-            <Avatar>
-              <AvatarImage
-                src="https://picsum.photos/40/40"
-                alt="User avatar"
-                data-ai-hint="user avatar"
-              />
-              <AvatarFallback>EZ</AvatarFallback>
-            </Avatar>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Profile</DropdownMenuItem>
-          <DropdownMenuItem>Settings</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/login">Logout</Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {user && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
+              <Avatar>
+                <AvatarImage
+                  src={user.photoURL || "https://picsum.photos/40/40"}
+                  alt={user.displayName || "User avatar"}
+                  data-ai-hint="user avatar"
+                />
+                <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>{user.displayName || 'My Account'}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Profile</DropdownMenuItem>
+            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              Logout
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </header>
   );
 }

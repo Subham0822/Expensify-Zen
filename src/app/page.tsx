@@ -57,6 +57,8 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/header";
+import { useAuth } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
 
 const expenseSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -83,8 +85,17 @@ const initialExpenses: Expense[] = [
 ];
 
 export default function DashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [expenses, setExpenses] = React.useState<Expense[]>(initialExpenses);
+
+  React.useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
 
   const form = useForm<z.infer<typeof expenseSchema>>({
     resolver: zodResolver(expenseSchema),
@@ -127,6 +138,14 @@ export default function DashboardPage() {
       currency: "USD",
     }).format(amount);
   };
+  
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-muted/40">
+        <div>Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
