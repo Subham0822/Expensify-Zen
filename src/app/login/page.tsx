@@ -13,10 +13,13 @@ import { GithubIcon, GoogleIcon, Logo } from "@/components/icons";
 import { signInWithGoogle, signInWithGitHub } from "@/lib/auth";
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { FirebaseError } from 'firebase/app';
 
 export default function LoginPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!loading && user) {
@@ -26,16 +29,48 @@ export default function LoginPage() {
 
 
   const handleGoogleSignIn = async () => {
-    const user = await signInWithGoogle();
-    if (user) {
-      router.push('/');
+    try {
+      const user = await signInWithGoogle();
+      if (user) {
+        router.push('/');
+      }
+    } catch (error) {
+      if (error instanceof FirebaseError && error.code === 'auth/account-exists-with-different-credential') {
+        toast({
+          title: 'Sign-in Error',
+          description: 'An account already exists with this email. Please sign in using the method you originally used.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Sign-in Error',
+          description: 'An unexpected error occurred. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
   const handleGitHubSignIn = async () => {
-    const user = await signInWithGitHub();
-    if (user) {
-      router.push('/');
+    try {
+      const user = await signInWithGitHub();
+      if (user) {
+        router.push('/');
+      }
+    } catch (error) {
+      if (error instanceof FirebaseError && error.code === 'auth/account-exists-with-different-credential') {
+        toast({
+          title: 'Sign-in Error',
+          description: 'An account already exists with this email. Please sign in using the method you originally used.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Sign-in Error',
+          description: 'An unexpected error occurred. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
