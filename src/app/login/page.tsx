@@ -89,7 +89,7 @@ export default function LoginPage() {
           <div className="mx-auto w-16 h-16">
             <Logo />
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome to Expensify Zen</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome to Khorcha Khata</CardTitle>
           <CardDescription>
             Sign in to your account to manage your expenses.
           </CardDescription>
