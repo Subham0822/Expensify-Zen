@@ -2,7 +2,7 @@
 
 import { createContext, useEffect, useState, ReactNode } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth, handleRedirectResult } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { useRouter, usePathname } from "next/navigation";
 
 interface AuthContextType {
@@ -21,34 +21,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Handle redirect results first (for localhost development)
-    const handleAuthRedirect = async () => {
-      try {
-        const redirectUser = await handleRedirectResult();
-        if (redirectUser) {
-          setUser(redirectUser);
-          setLoading(false);
-          return;
-        }
-      } catch (error) {
-        console.error("Error handling redirect:", error);
-      }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
 
-      // If no redirect result, listen for auth state changes
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setUser(user);
-        setLoading(false);
-      });
-
-      return unsubscribe;
-    };
-
-    const unsubscribe = handleAuthRedirect();
-    return () => {
-      if (unsubscribe && typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-    };
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
