@@ -151,9 +151,9 @@ export default function DashboardPage() {
   }
   
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     }).format(amount);
   };
   
@@ -168,9 +168,9 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <Header />
-      <main className="flex flex-1 flex-col gap-4 p-4 sm:p-6">
+      <main className="flex flex-1 flex-col gap-4 p-4 sm:p-6 animate-in fade-in-50">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
               <span className="text-2xl">💸</span>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="md:col-span-1 lg:col-span-3">
+          <Card className="md:col-span-1 lg:col-span-3 transition-all hover:shadow-md">
             <CardHeader>
               <CardTitle>Add a New Expense</CardTitle>
               <CardDescription>
@@ -217,7 +217,7 @@ export default function DashboardPage() {
                       <FormItem>
                         <FormLabel>Amount</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="e.g. 25.50" {...field} />
+                          <Input type="number" placeholder="e.g. 1500.50" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -259,7 +259,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-        <Card>
+        <Card className="transition-all hover:shadow-md">
           <CardHeader>
             <CardTitle>Recent Expenses</CardTitle>
             <CardDescription>
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                   </TableRow>
                 ) : expenses.length > 0 ? (
                   expenses.map((expense) => (
-                    <TableRow key={expense.id}>
+                    <TableRow key={expense.id} className="transition-colors">
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                           {categoryIcons[expense.category]}

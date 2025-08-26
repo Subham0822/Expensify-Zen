@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +21,7 @@ import { useRouter } from "next/navigation";
 export function Header() {
   const { user } = useAuth();
   const router = useRouter();
+  const { setTheme, theme } = useTheme();
 
   const handleLogout = async () => {
     await signOut();
@@ -26,19 +29,29 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
       <Link
         href="/"
-        className="flex items-center gap-2 text-lg font-semibold text-primary"
+        className="flex items-center gap-2 text-lg font-semibold"
       >
         <div className="w-8 h-8">
             <Logo />
         </div>
-        <span className="font-bold">Expensify Zen</span>
+        <span className="font-bold text-foreground">Expensify Zen</span>
       </Link>
       <div className="relative ml-auto flex-1 md:grow-0">
         {/* Can be used for search in future */}
       </div>
+       <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+        aria-label="Toggle theme"
+      >
+        <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+        <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        <span className="sr-only">Toggle theme</span>
+      </Button>
       {user && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

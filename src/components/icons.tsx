@@ -9,8 +9,8 @@ export const Logo = (props: React.SVGProps<SVGSVGElement>) => (
       strokeLinejoin="round"
       {...props}
     >
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="hsl(var(--primary))"></path>
-      <path d="M12 5.5V18.5M7 12H17" stroke="hsl(var(--primary-foreground))"></path>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" className="fill-primary"></path>
+      <path d="M12 5.5V18.5M7 12H17" className="stroke-primary-foreground"></path>
     </svg>
   );
   
