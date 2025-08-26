@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -14,6 +15,8 @@ import {
   Utensils,
   CalendarIcon,
   Pencil,
+  Wallet,
+  Landmark,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -84,6 +87,7 @@ const expenseSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   amount: z.coerce.number().positive("Amount must be a positive number."),
   category: z.enum(["food", "transport", "shopping", "bills", "other"]),
+  paymentMethod: z.enum(["cash", "upi"]),
   date: z.date(),
 });
 
@@ -96,6 +100,12 @@ const categoryIcons: Record<ExpenseCategory, React.ReactNode> = {
   bills: <CreditCard className="h-4 w-4" />,
   other: <LayoutGrid className="h-4 w-4" />,
 };
+
+const paymentMethodIcons: Record<Expense['paymentMethod'], React.ReactNode> = {
+  cash: <Wallet className="h-4 w-4" />,
+  upi: <Landmark className="h-4 w-4" />,
+};
+
 
 function EditExpenseDialog({
   expense,
@@ -112,6 +122,7 @@ function EditExpenseDialog({
       name: expense.name,
       amount: expense.amount,
       category: expense.category,
+      paymentMethod: expense.paymentMethod,
       date: expense.date,
     },
   });
@@ -192,6 +203,30 @@ function EditExpenseDialog({
                       <SelectItem value="shopping">Shopping</SelectItem>
                       <SelectItem value="bills">Bills</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="paymentMethod"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Method</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a payment method" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="upi">UPI</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -279,8 +314,9 @@ export default function DashboardPage() {
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       name: "",
-      amount: "" as unknown as number, // Fix: Use empty string to avoid uncontrolled component warning
+      amount: "" as unknown as number,
       category: "other",
+      paymentMethod: "cash",
       date: new Date(),
     },
   });
@@ -311,6 +347,8 @@ export default function DashboardPage() {
       await addExpense(user.uid, values as NewExpense);
       form.reset();
       form.setValue("date", new Date());
+      form.setValue("paymentMethod", "cash");
+      form.setValue("category", "other");
       toast({
         title: "Expense Added",
         description: `${values.name} has been successfully added.`,
@@ -408,7 +446,7 @@ export default function DashboardPage() {
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
-                  className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
+                  className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6"
                 >
                   <FormField
                     control={form.control}
@@ -470,6 +508,30 @@ export default function DashboardPage() {
                       </FormItem>
                     )}
                   />
+                   <FormField
+                    control={form.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a method" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="upi">UPI</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="date"
@@ -514,7 +576,7 @@ export default function DashboardPage() {
                   />
                   <Button
                     type="submit"
-                    className="sm:col-span-2 lg:col-span-1 lg:self-end"
+                    className="sm:col-span-2 lg:col-span-full"
                   >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Expense
@@ -540,6 +602,7 @@ export default function DashboardPage() {
                   </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden sm:table-cell">Date</TableHead>
+                  <TableHead className="hidden md:table-cell">Payment Method</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="w-[100px] text-center">
                     Actions
@@ -550,7 +613,7 @@ export default function DashboardPage() {
                 {isFetching ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
                       Loading expenses...
@@ -569,6 +632,14 @@ export default function DashboardPage() {
                       </TableCell>
                        <TableCell className="hidden sm:table-cell text-muted-foreground">
                         {format(expense.date, "PPP")}
+                      </TableCell>
+                       <TableCell className="hidden md:table-cell">
+                        <div className="flex items-center gap-2">
+                           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                            {paymentMethodIcons[expense.paymentMethod]}
+                          </div>
+                          <span className="capitalize">{expense.paymentMethod}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         {formatCurrency(expense.amount)}
@@ -595,7 +666,7 @@ export default function DashboardPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No expenses yet. Add one to get started!

@@ -1,3 +1,4 @@
+
 import {
   getFirestore,
   collection,
@@ -22,6 +23,7 @@ export interface Expense {
   name: string;
   amount: number;
   category: "food" | "transport" | "shopping" | "bills" | "other";
+  paymentMethod: "cash" | "upi";
   date: Date;
   createdAt: Date;
 }
@@ -74,6 +76,7 @@ export const getExpenses = (
           name: data.name,
           amount: data.amount,
           category: data.category,
+          paymentMethod: data.paymentMethod,
           date: data.date.toDate(),
           createdAt: data.createdAt?.toDate(),
         });
