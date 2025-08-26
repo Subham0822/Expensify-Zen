@@ -1,13 +1,16 @@
 'use client';
 
 import {
+  getAuth,
   signInWithPopup,
   GoogleAuthProvider,
   GithubAuthProvider,
   signOut as firebaseSignOut,
   type User,
 } from 'firebase/auth';
-import { auth } from './firebase';
+import { app } from './firebase';
+
+export const auth = getAuth(app);
 
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
