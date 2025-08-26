@@ -63,7 +63,7 @@ export const getExpenses = (
     return () => {};
   }
   const expensesCollectionRef = collection(db, "expenses", userId, "items");
-  const q = query(expensesCollectionRef, orderBy("createdAt", "desc"));
+  const q = query(expensesCollectionRef, orderBy("date", "desc"), orderBy("createdAt", "desc"));
 
   const unsubscribe = onSnapshot(
     q,
