@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -20,12 +21,13 @@ export const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 const githubProvider = new GithubAuthProvider();
 
-const isSecureContext = () => {
-  if (typeof window !== "undefined") {
-    return window.isSecureContext || window.location.protocol === "https:";
-  }
-  return false;
+const isLocalhost = () => {
+    if (typeof window !== 'undefined') {
+        return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    }
+    return false;
 };
+
 
 export const handleRedirectResult = async () => {
   try {
@@ -35,16 +37,28 @@ export const handleRedirectResult = async () => {
     }
     return null;
   } catch (error: any) {
+    // This is where we handle the account linking after a redirect
     if (error.code === 'auth/account-exists-with-different-credential') {
         const pendingCred = error.credential;
         const email = error.customData.email;
         const methods = await fetchSignInMethodsForEmail(auth, email);
         
+        // Sign in with the existing provider
+        let providerToSignIn;
         if (methods[0] === 'google.com') {
-            const result = await signInWithPopup(auth, googleProvider);
-            if(result.user && pendingCred) {
-                await linkWithCredential(result.user, pendingCred);
-            }
+            providerToSignIn = googleProvider;
+        } else if (methods[0] === 'github.com') {
+            providerToSignIn = githubProvider;
+        } else {
+            // Handle other providers if necessary
+            throw new Error(`Unhandled provider: ${methods[0]}`);
+        }
+
+        const result = await signInWithPopup(auth, providerToSignIn);
+        if(result.user && pendingCred) {
+            // Link the new credential to the existing user
+            await linkWithCredential(result.user, pendingCred);
+            return result.user;
         }
     }
     console.error("Error handling redirect result:", error);
@@ -54,39 +68,35 @@ export const handleRedirectResult = async () => {
 
 const handleSignIn = async (provider: AuthProvider) => {
   try {
-    console.log(`Attempting sign-in with ${provider.providerId}...`);
-    
-    // For non-secure contexts like http://localhost, redirect is often more reliable
-    if (!isSecureContext()) {
-      console.log("Not in secure context, using redirect method");
+    // For localhost development, redirect is often more reliable
+    if (isLocalhost()) {
       await signInWithRedirect(auth, provider);
-      return null;
+      return null; // signInWithRedirect doesn't return a user, the result is handled by getRedirectResult
     }
 
+    // For deployed environments, popup is generally preferred
     const result = await signInWithPopup(auth, provider);
-    console.log(`${provider.providerId} sign-in successful:`, result.user.email);
     return result.user;
   } catch (error: any) {
     if (error.code === 'auth/account-exists-with-different-credential') {
-      const pendingCred = provider.providerId === 'google.com' 
-        ? GoogleAuthProvider.credentialFromError(error)
-        : GithubAuthProvider.credentialFromError(error);
-        
+      const pendingCred = error.credential;
       const email = error.customData.email;
       const methods = await fetchSignInMethodsForEmail(auth, email);
 
-      if (methods[0] === 'google.com') {
-        const result = await signInWithPopup(auth, googleProvider);
-        if (result.user && pendingCred) {
-          await linkWithCredential(result.user, pendingCred);
-          return result.user;
+      let providerToSignIn;
+        if (methods[0] === 'google.com') {
+            providerToSignIn = googleProvider;
+        } else if (methods[0] === 'github.com') {
+            providerToSignIn = githubProvider;
+        } else {
+            // Handle other providers if necessary
+            throw new Error(`Unhandled provider: ${methods[0]}`);
         }
-      } else if (methods[0] === 'github.com') {
-        const result = await signInWithPopup(auth, githubProvider);
-         if (result.user && pendingCred) {
-          await linkWithCredential(result.user, pendingCred);
-          return result.user;
-        }
+      
+      const result = await signInWithPopup(auth, providerToSignIn);
+      if (result.user && pendingCred) {
+        await linkWithCredential(result.user, pendingCred);
+        return result.user;
       }
     }
     console.error(`Error signing in with ${provider.providerId}:`, error);
@@ -94,14 +104,12 @@ const handleSignIn = async (provider: AuthProvider) => {
   }
 };
 
-
 export const signInWithGoogle = () => handleSignIn(googleProvider);
 export const signInWithGitHub = () => handleSignIn(githubProvider);
 
 export const signOut = async () => {
   try {
     await firebaseSignOut(auth);
-    console.log("Sign out successful");
   } catch (error) {
     console.error("Error signing out:", error);
   }
