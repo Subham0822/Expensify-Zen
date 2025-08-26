@@ -17,8 +17,9 @@ import {
   Pencil,
   Wallet,
   Landmark,
+  BadgeCent,
 } from "lucide-react";
-import { format, startOfMonth, isSameMonth } from "date-fns";
+import { format, startOfMonth, isSameMonth, isToday } from "date-fns";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -391,7 +392,7 @@ export default function DashboardPage() {
   const [expenses, setExpenses] = React.useState<Expense[]>([]);
   const [isFetching, setIsFetching] = React.useState(true);
   const [currentPage, setCurrentPage] = React.useState(1);
-  const expensesPerPage = 10;
+  const expensesPerPage = 5;
 
 
   React.useEffect(() => {
@@ -444,19 +445,23 @@ export default function DashboardPage() {
     };
   }, [expenses]);
   
-  const monthlyTotals = React.useMemo(() => {
-    return currentMonthExpenses.reduce(
+  const dailyAndMonthlyTotals = React.useMemo(() => {
+    const totals = currentMonthExpenses.reduce(
       (acc, expense) => {
-        acc.total += expense.amount;
+        acc.monthlyTotal += expense.amount;
         if (expense.paymentMethod === "cash") {
-          acc.cash += expense.amount;
+          acc.monthlyCash += expense.amount;
         } else if (expense.paymentMethod === "upi") {
-          acc.upi += expense.amount;
+          acc.monthlyUpi += expense.amount;
+        }
+        if (isToday(expense.date)) {
+          acc.dailyTotal += expense.amount;
         }
         return acc;
       },
-      { total: 0, cash: 0, upi: 0 }
+      { monthlyTotal: 0, monthlyCash: 0, monthlyUpi: 0, dailyTotal: 0 }
     );
+    return totals;
   }, [currentMonthExpenses]);
 
   async function onSubmit(values: z.infer<typeof expenseSchema>) {
@@ -555,7 +560,7 @@ export default function DashboardPage() {
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <Header />
       <main className="flex flex-1 flex-col gap-4 p-4 sm:p-6 animate-in fade-in-50">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
            <Card className="transition-all hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -565,10 +570,26 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(monthlyTotals.total)}
+                {formatCurrency(dailyAndMonthlyTotals.monthlyTotal)}
               </div>
               <p className="text-xs text-muted-foreground">
                 Total for {format(new Date(), "MMMM yyyy")}
+              </p>
+            </CardContent>
+          </Card>
+           <Card className="transition-all hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Spent (Today)
+              </CardTitle>
+              <BadgeCent className="h-6 w-6 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {formatCurrency(dailyAndMonthlyTotals.dailyTotal)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Total for {format(new Date(), "do MMMM")}
               </p>
             </CardContent>
           </Card>
@@ -579,7 +600,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(monthlyTotals.cash)}
+                {formatCurrency(dailyAndMonthlyTotals.monthlyCash)}
               </div>
                <p className="text-xs text-muted-foreground">
                 This month via Cash
@@ -593,7 +614,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatCurrency(monthlyTotals.upi)}
+                {formatCurrency(dailyAndMonthlyTotals.monthlyUpi)}
               </div>
                <p className="text-xs text-muted-foreground">
                 This month via UPI
@@ -848,3 +869,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
