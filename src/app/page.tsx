@@ -6,10 +6,8 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import {
   Car,
-  ChevronDown,
   CreditCard,
   LayoutGrid,
-  MoreHorizontal,
   PlusCircle,
   ShoppingBag,
   Trash2,
@@ -25,12 +23,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -59,6 +51,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/header";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
+import { addExpense, deleteExpense as deleteExpenseFromDB, getExpenses, Expense } from "@/lib/firestore";
 
 const expenseSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -66,7 +59,6 @@ const expenseSchema = z.object({
   category: z.enum(["food", "transport", "shopping", "bills", "other"]),
 });
 
-type Expense = z.infer<typeof expenseSchema> & { id: string };
 type ExpenseCategory = Expense["category"];
 
 const categoryIcons: Record<ExpenseCategory, React.ReactNode> = {
@@ -77,24 +69,28 @@ const categoryIcons: Record<ExpenseCategory, React.ReactNode> = {
   other: <LayoutGrid className="h-4 w-4" />,
 };
 
-const initialExpenses: Expense[] = [
-  { id: "1", name: "Coffee", amount: 4.5, category: "food" },
-  { id: "2", name: "Subway Ticket", amount: 2.75, category: "transport" },
-  { id: "3", name: "Groceries", amount: 75.2, category: "shopping" },
-  { id: "4", name: "Electricity Bill", amount: 55.0, category: "bills" },
-];
-
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [expenses, setExpenses] = React.useState<Expense[]>(initialExpenses);
+  const [expenses, setExpenses] = React.useState<Expense[]>([]);
+  const [isFetching, setIsFetching] = React.useState(true);
 
   React.useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+  
+  React.useEffect(() => {
+    if (user) {
+      const unsubscribe = getExpenses(user.uid, (newExpenses) => {
+        setExpenses(newExpenses);
+        setIsFetching(false);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
 
 
   const form = useForm<z.infer<typeof expenseSchema>>({
@@ -110,26 +106,48 @@ export default function DashboardPage() {
     return expenses.reduce((total, expense) => total + expense.amount, 0);
   }, [expenses]);
 
-  function onSubmit(values: z.infer<typeof expenseSchema>) {
-    const newExpense: Expense = {
-      id: new Date().getTime().toString(),
-      ...values,
-    };
-    setExpenses((prev) => [newExpense, ...prev]);
-    form.reset();
-    toast({
-      title: "Expense Added",
-      description: `${values.name} has been successfully added.`,
-    });
+  async function onSubmit(values: z.infer<typeof expenseSchema>) {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add an expense.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await addExpense(user.uid, values);
+      form.reset();
+      toast({
+        title: "Expense Added",
+        description: `${values.name} has been successfully added.`,
+      });
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem adding your expense.",
+        variant: "destructive",
+      });
+    }
   }
 
-  function deleteExpense(id: string) {
-    setExpenses((prev) => prev.filter((expense) => expense.id !== id));
-    toast({
-      title: "Expense Removed",
-      description: "The expense has been successfully removed.",
-      variant: "destructive",
-    });
+  async function deleteExpense(id: string) {
+    if (!user) return;
+    try {
+      await deleteExpenseFromDB(user.uid, id);
+      toast({
+        title: "Expense Removed",
+        description: "The expense has been successfully removed.",
+      });
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem removing the expense.",
+        variant: "destructive",
+      });
+    }
   }
   
   const formatCurrency = (amount: number) => {
@@ -263,7 +281,16 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenses.length > 0 ? (
+                {isFetching ? (
+                   <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      Loading expenses...
+                    </TableCell>
+                  </TableRow>
+                ) : expenses.length > 0 ? (
                   expenses.map((expense) => (
                     <TableRow key={expense.id}>
                       <TableCell className="hidden sm:table-cell">
