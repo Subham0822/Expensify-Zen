@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  MoreHorizontal,
 } from "lucide-react";
 import { format, startOfMonth, isSameMonth, isToday } from "date-fns";
 
@@ -95,7 +96,11 @@ import {
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
   AlertDialog,
@@ -323,6 +328,44 @@ function EditExpenseDialog({
 
 const EXPENSES_PER_PAGE = 5;
 
+const usePagination = ({ totalPages, siblingCount = 1, currentPage }: { totalPages: number, siblingCount?: number, currentPage: number }) => {
+  const paginationRange = React.useMemo(() => {
+    const totalPageNumbers = siblingCount + 5;
+
+    if (totalPageNumbers >= totalPages) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const leftSiblingIndex = Math.max(currentPage - siblingCount, 1);
+    const rightSiblingIndex = Math.min(currentPage + siblingCount, totalPages);
+
+    const shouldShowLeftDots = leftSiblingIndex > 2;
+    const shouldShowRightDots = rightSiblingIndex < totalPages - 2;
+
+    const firstPageIndex = 1;
+    const lastPageIndex = totalPages;
+
+    if (!shouldShowLeftDots && shouldShowRightDots) {
+      let leftItemCount = 3 + 2 * siblingCount;
+      let leftRange = Array.from({ length: leftItemCount }, (_, i) => i + 1);
+      return [...leftRange, '...', totalPages];
+    }
+
+    if (shouldShowLeftDots && !shouldShowRightDots) {
+      let rightItemCount = 3 + 2 * siblingCount;
+      let rightRange = Array.from({ length: rightItemCount }, (_, i) => totalPages - rightItemCount + i + 1);
+      return [firstPageIndex, '...', ...rightRange];
+    }
+
+    if (shouldShowLeftDots && shouldShowRightDots) {
+      let middleRange = Array.from({ length: rightSiblingIndex - leftSiblingIndex + 1 }, (_, i) => leftSiblingIndex + i);
+      return [firstPageIndex, '...', ...middleRange, '...', lastPageIndex];
+    }
+  }, [totalPages, siblingCount, currentPage]);
+
+  return paginationRange;
+};
+
 function PaginatedExpenseTable({ 
   expenses, 
   onUpdate, 
@@ -340,15 +383,11 @@ function PaginatedExpenseTable({
     currentPage * EXPENSES_PER_PAGE
   );
 
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
+  const paginationRange = usePagination({ currentPage, totalPages });
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
     }
   };
 
@@ -363,29 +402,33 @@ function PaginatedExpenseTable({
         <Pagination className="mt-4">
           <PaginationContent>
             <PaginationItem>
-              <Button
-                variant="outline"
-                onClick={handlePreviousPage}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Previous</span>
-              </Button>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }}
+                className={cn({ 'pointer-events-none opacity-50': currentPage === 1 })}
+              />
             </PaginationItem>
+            {paginationRange?.map((pageNumber, index) => (
+              <PaginationItem key={index}>
+                {pageNumber === '...' ? (
+                  <PaginationEllipsis />
+                ) : (
+                  <PaginationLink
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); handlePageChange(pageNumber as number); }}
+                    isActive={currentPage === pageNumber}
+                  >
+                    {pageNumber}
+                  </PaginationLink>
+                )}
+              </PaginationItem>
+            ))}
             <PaginationItem>
-              <span className="text-sm text-muted-foreground px-4">
-                Page {currentPage} of {totalPages}
-              </span>
-            </PaginationItem>
-            <PaginationItem>
-              <Button
-                variant="outline"
-                onClick={handleNextPage}
-                disabled={currentPage === totalPages}
-              >
-                <span className="sr-only">Next</span>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <PaginationNext
+                href="#"
+                onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }}
+                className={cn({ 'pointer-events-none opacity-50': currentPage === totalPages })}
+              />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
@@ -963,5 +1006,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
