@@ -96,11 +96,7 @@ import {
 import {
   Pagination,
   PaginationContent,
-  PaginationEllipsis,
   PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
 } from "@/components/ui/pagination";
 import {
   AlertDialog,
@@ -366,13 +362,18 @@ function PaginatedExpenseTable({
   };
 
   React.useEffect(() => {
-    setCurrentPage(1);
-    setInputValue("1");
-  }, [expenses]);
+    if (totalPages > 0 && currentPage > totalPages) {
+      handlePageChange(totalPages);
+    } else if (currentPage === 0 && totalPages > 0) {
+      handlePageChange(1)
+    }
+  }, [totalPages, currentPage]);
 
   return (
-    <>
-      <ExpenseTable expenses={paginatedExpenses} onUpdate={onUpdate} onDelete={onDelete} />
+    <div className="space-y-4">
+      <div className="overflow-x-auto">
+        <ExpenseTable expenses={paginatedExpenses} onUpdate={onUpdate} onDelete={onDelete} />
+      </div>
       {totalPages > 1 && (
         <Pagination className="mt-4">
           <PaginationContent>
@@ -384,12 +385,12 @@ function PaginatedExpenseTable({
                 className="gap-1 pl-2.5"
               >
                 <ChevronLeft className="h-4 w-4" />
-                <span>Previous</span>
+                <span className="hidden sm:inline">Previous</span>
               </Button>
             </PaginationItem>
 
             <PaginationItem className="flex items-center gap-2 text-sm">
-              <span>Page</span>
+              <span className="hidden sm:inline">Page</span>
               <Input
                 type="number"
                 min="1"
@@ -399,7 +400,7 @@ function PaginatedExpenseTable({
                 onKeyDown={handleInputKeyDown}
                 className="h-8 w-14 text-center"
               />
-              <span>of {totalPages}</span>
+              <span className="hidden sm:inline">of {totalPages}</span>
             </PaginationItem>
             
             <PaginationItem>
@@ -409,14 +410,14 @@ function PaginatedExpenseTable({
                 disabled={currentPage === totalPages}
                 className="gap-1 pr-2.5"
               >
-                <span>Next</span>
+                <span className="hidden sm:inline">Next</span>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </PaginationItem>
           </PaginationContent>
         </Pagination>
       )}
-    </>
+    </div>
   );
 }
 
@@ -429,10 +430,10 @@ function ExpenseTable({ expenses, onUpdate, onDelete }: {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Category</TableHead>
+          <TableHead className="hidden sm:table-cell">Category</TableHead>
           <TableHead>Name</TableHead>
-          <TableHead>Date</TableHead>
-          <TableHead>Payment Method</TableHead>
+          <TableHead className="hidden md:table-cell">Date</TableHead>
+          <TableHead className="hidden lg:table-cell">Payment</TableHead>
           <TableHead className="text-right">Amount</TableHead>
           <TableHead className="w-[100px] text-center">Actions</TableHead>
         </TableRow>
@@ -441,16 +442,22 @@ function ExpenseTable({ expenses, onUpdate, onDelete }: {
         {expenses.length > 0 ? (
           expenses.map((expense) => (
             <TableRow key={expense.id} className="transition-colors">
-              <TableCell>
+              <TableCell className="hidden sm:table-cell">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                   {categoryIcons[expense.category]}
                 </div>
               </TableCell>
-              <TableCell className="font-medium">{expense.name}</TableCell>
-              <TableCell className="text-muted-foreground">
+              <TableCell className="font-medium">
+                <div className="flex flex-col">
+                  <span>{expense.name}</span>
+                  <span className="text-xs text-muted-foreground sm:hidden capitalize">{expense.category} | {expense.paymentMethod}</span>
+                  <span className="text-xs text-muted-foreground md:hidden">{format(expense.date, "PPP")}</span>
+                </div>
+              </TableCell>
+              <TableCell className="hidden md:table-cell text-muted-foreground">
                 {format(expense.date, "PPP")}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden lg:table-cell">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                     {paymentMethodIcons[expense.paymentMethod]}
@@ -755,13 +762,13 @@ export default function DashboardPage() {
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6"
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5"
               >
                 <FormField
                   control={form.control}
                   name="name"
                   render={({ field }) => (
-                    <FormItem className="lg:col-span-2">
+                    <FormItem className="sm:col-span-2">
                       <FormLabel>Expense Name</FormLabel>
                       <FormControl>
                         <Input
@@ -841,11 +848,11 @@ export default function DashboardPage() {
                     </FormItem>
                   )}
                 />
-                <FormField
+                 <FormField
                   control={form.control}
                   name="date"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2">
+                    <FormItem className="flex flex-col pt-2 sm:col-span-2 lg:col-span-1">
                       <FormLabel>Date</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -885,7 +892,7 @@ export default function DashboardPage() {
                 />
                 <Button
                   type="submit"
-                  className="w-full sm:col-span-2 lg:col-span-6"
+                  className="w-full sm:col-span-3 lg:col-span-4"
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Expense
@@ -905,12 +912,12 @@ export default function DashboardPage() {
                 </CardDescription>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <div className="relative w-full sm:w-64">
+                <div className="relative w-full sm:w-auto">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="search"
                       placeholder="Search expenses..."
-                      className="pl-8 sm:w-full"
+                      className="pl-8 w-full sm:w-64"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -944,7 +951,7 @@ export default function DashboardPage() {
                 />
              ) : (
                <div className="h-24 text-center text-muted-foreground flex items-center justify-center">
-                 No expenses found.
+                 No expenses found for the current month.
                </div>
              )}
           </CardContent>
